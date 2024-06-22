@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <script>
+        function generateMineMap() {
+            const width = $('#width').val();
+            const height = $('#height').val();
+            const mineCount = $('#mineCount').val();
+
+            if(mineCount === '' || width === '' || height === '') {
+                alert('가로길이, 세로길이, 지뢰 갯수를 입력해주세요.');
+                return;
+            }
+
+            if(mineCount >= width * height) {
+                alert('지뢰 갯수가 너무 많습니다.');
+                return;
+            }
+
+            $.ajax({
+                url: '/makeMineMap',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    n: width,
+                    m: height,
+                    mineCount: mineCount
+                }),
+                success: function (data) {
+                    // console.log(data);
+                    createGrid(width, height);
+                }
+            });
+        }
+
+        function createGrid(width, height) {
+            const gridContainer = $('#gridContainer');
+            gridContainer.empty(); // 기존 그리드 제거
+
+            for(let i = 0; i < height; i++) {
+                const row = $('<div>').addClass('row');
+
+                for(let j = 0; j < width; j++) {
+                    const cell = $('<button>').addClass('cell').text(' ')
+                        .on('click', function() {
+                        // 좌클릭 이벤트
+                        // alert(`Cell (${i}, ${j}) clicked`);
+                        openCell(i, j);
+                    })
+                        .on('contextmenu', function(e) {
+                            // 우클릭 이벤트
+                            e.preventDefault(); // 우클릭 창 띄움 방지
+                            markCell(i, j);
+                        });
+                    row.append(cell);
+                }
+
+                gridContainer.append(row);
+            }
+        }
+
+        function openCell(i, j) {
+            // alert(`Cell (${i}, ${j}) left clicked`); // 확인
+
+            // 서버에 해당 셀 열기 요청
+            $.ajax({
+                url: '/openCell',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    x: i,
+                    y: j
+                }),
+                success: function (data) {
+                    // console.log(data);
+                    if(data === 'mine') {
+                        alert('Game Over');
+                        showAllMines(); // 모든 지뢰 표시
+                        $(".cell").off("click"); // 모든 셀 클릭 이벤트 제거
+                        $(".cell").off("contextmenu"); // 모든 셀 우클릭 이벤트 제거
+                    } else {
+                        const cell = $(`.row:eq(${i}) .cell:eq(${j})`);
+                        cell.text(data);
+                    }
+                }
+            });
+
+            // const cell = $(`.row:eq(${i}) .cell:eq(${j})`);
+            // cell.text('O');
+        }
+
+        function markCell(i, j) {
+            // alert(`Cell (${i}, ${j}) right clicked`); // 확인
+            const cell = $(`.row:eq(${i}) .cell:eq(${j})`);
+            if(cell.text() === '🚩') {
+                cell.text(' ');
+            } else {
+                cell.text('🚩');
+            }
+        }
+
+        function showAllMines() {
+            $.ajax({
+                url: '/getAllMines',
+                type: 'GET',
+                contentType: 'application/json',
+                success: function (data) {
+                    for (let i = 0; i < data.length; i++) {
+                        const x = data[i].x;
+                        const y = data[i].y;
+                        const cell = $(`.row:eq(${x}) .cell:eq(${y})`);
+                        cell.text('🚩');
+                    }
+                }
+            });
+        }
+
+    </script>
+
+    <style>
+        .row {
+            margin: 0; /*여백 제거*/
+            display: flex; /* row 내의 요소들을 flexbox로 만듭니다. */
+            /*align-items: stretch; !* row 내의 요소들이 세로로 꽉 차게 만듭니다. *!*/
+        }
+        .cell {
+            width: 20px;  /* 셀의 가로 크기 설정 */
+            height: 20px; /* 셀의 세로 크기 설정 */
+            padding: 0;   /* 셀 내부의 여백 제거 */
+            margin: 0;    /* 셀 주변의 여백 제거 */
+            /*border: none; !* 셀의 테두리 제거 *!*/
+            border: 1px solid black; /* 셀의 테두리 설정 */
+        }
+    </style>
+
+</head>
+<body>
+    <h1>눌러눌러 빵빵</h1>
+    <p>
+        <label for="width">가로길이</label>
+        <input type="text" id="width" name="width" value="10">
+        <br>
+        <label for="height">세로길이</label>
+        <input type="text" id="height" name="height" value="10">
+        <br>
+        <label for="mineCount">지뢰 갯수</label>
+        <input type="text" id="mineCount" name="mineCount" value="30">
+        <br>
+        <button onclick="generateMineMap()">지뢰 맵 생성하기</button>
+    </p>
+
+    <div id="gridContainer"></div>
+
+
+
+</body>
+</html>
